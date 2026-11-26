@@ -1,0 +1,107 @@
+---
+- name: Install zsh
+  hosts: 127.0.0.1
+  connection: local
+  become: true
+
+  vars:
+
+    machine_arch_map:
+      x86_64: amd64
+      aarch64: arm64
+      armv7l: armhf
+
+    machine_os_family_map:
+      Debian: debian
+      Ubuntu: debian
+      Kali: debian
+      RedHat: redhat
+      Suse: redhat
+      SUSE: redhat
+
+    machine_arch: "{{ machine_arch_map.get(ansible_architecture, '') }}"
+    machine_os_family: "{{ machine_os_family_map.get(ansible_os_family, '') }}"
+
+    ansible_target_user: "{{ ansible_user | default(ansible_user_id | default('root')) }}"
+    set_zsh_shell: "{{ ansible_target_user != 'root' }}"
+
+  pre_tasks:
+    - name: Verify architecture and distribution are supported
+      ansible.builtin.assert:
+        that:
+          - ansible_architecture in machine_arch_map
+          - ansible_os_family in machine_os_family_map
+        fail_msg: >-
+          Unsupported platform: architecture={{ ansible_architecture }},
+          os_family={{ ansible_os_family }}
+
+  tasks:
+    # Debian-family: Debian, Ubuntu, Kali
+    - name: Install zsh on Debian-family systems
+      ansible.builtin.apt:
+        name: zsh
+        state: present
+        update_cache: true
+      when: machine_os_family == "debian"
+
+    # Red Hat-family: RHEL, Rocky, Alma, Fedora, Oracle Linux
+    - name: Install zsh on Red Hat-family systems
+      ansible.builtin.dnf:
+        name: zsh
+        state: present
+      when: machine_os_family == "redhat"
+
+    - name: Set the default shell for the target user to zsh
+      ansible.builtin.user:
+        name: "{{ ansible_target_user }}"
+        shell: /usr/bin/zsh
+      when: set_zsh_shell
+
+    - name: Get target user home directory
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ ansible_target_user }}"
+      when: set_zsh_shell
+
+    - name: Set target user home directory fact
+      ansible.builtin.set_fact:
+        ansible_target_home: "{{ ansible_facts.getent_passwd[ansible_target_user][4] }}"
+      when: set_zsh_shell
+
+    - name: Check whether Oh My Zsh is installed
+      ansible.builtin.stat:
+        path: "{{ ansible_target_home }}/.oh-my-zsh"
+      register: ansible_target_ohmyzsh
+      when: set_zsh_shell
+
+    - name: Install Oh My Zsh for the target user
+      ansible.builtin.shell:
+        cmd: 'sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended'
+      become: true
+      become_user: "{{ ansible_target_user }}"
+      environment:
+        HOME: "{{ ansible_target_home }}"
+        RUNZSH: "no"
+        CHSH: "no"
+      when:
+        - set_zsh_shell
+        - not ansible_target_ohmyzsh.stat.exists
+
+    - name: Check whether target user's zsh configuration exists
+      ansible.builtin.stat:
+        path: "{{ ansible_target_home }}/.zshrc"
+      register: ansible_target_zshrc
+      when: set_zsh_shell
+
+    - name: Create target user's zsh configuration from Oh My Zsh template
+      ansible.builtin.copy:
+        src: "{{ ansible_target_home }}/.oh-my-zsh/templates/zshrc.zsh-template"
+        dest: "{{ ansible_target_home }}/.zshrc"
+        remote_src: true
+        owner: "{{ ansible_target_user }}"
+        group: "{{ ansible_target_user }}"
+        mode: "0600"
+        force: false
+      when:
+        - set_zsh_shell
+        - not ansible_target_zshrc.stat.exists
