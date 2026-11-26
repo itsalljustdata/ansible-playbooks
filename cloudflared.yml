@@ -1,0 +1,85 @@
+---
+- name: Install and configure cloudflared tunnel
+  hosts: 127.0.0.1
+  connection: local
+  become: true
+  vars:
+    cloudflared_arch_map:
+      x86_64: amd64
+      aarch64: arm64
+      armv7l: armhf
+    cloudflared_arch: "{{ cloudflared_arch_map[ansible_architecture] }}"
+    cloudflared_package_format_map:
+      Debian: deb
+      RedHat: rpm
+      SUSE: rpm
+      Suse: rpm
+    cloudflared_package_format: "{{ cloudflared_package_format_map.get(ansible_os_family, '') }}"
+    cloudflared_package_url: "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-{{ cloudflared_arch }}.{{ cloudflared_package_format }}"
+    cloudflared_package_path: "/tmp/cloudflared.{{ cloudflared_package_format }}"
+
+  tasks:
+    - name: Verify architecture and distribution are supported
+      ansible.builtin.assert:
+        that:
+          - ansible_architecture in cloudflared_arch_map
+          - cloudflared_package_format != ''
+        fail_msg: >-
+          Unsupported platform: architecture={{ ansible_architecture }},
+          os_family={{ ansible_os_family }}
+
+    - name: Download cloudflared package
+      ansible.builtin.get_url:
+        url: "{{ cloudflared_package_url }}"
+        dest: "{{ cloudflared_package_path }}"
+        mode: "0644"
+
+    - name: Install cloudflared .deb package
+      ansible.builtin.apt:
+        deb: "{{ cloudflared_package_path }}"
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install cloudflared .rpm package with dnf
+      ansible.builtin.dnf:
+        name: "{{ cloudflared_package_path }}"
+        state: present
+        disable_gpg_check: true
+      when: ansible_os_family == "RedHat" and ansible_pkg_mgr == "dnf"
+
+    - name: Install cloudflared .rpm package with yum
+      ansible.builtin.yum:
+        name: "{{ cloudflared_package_path }}"
+        state: present
+        disable_gpg_check: true
+      when: ansible_os_family in ["RedHat", "SUSE"] and ansible_pkg_mgr == "yum"
+
+    - name: Install cloudflared .rpm package with zypper
+      community.general.zypper:
+        name: "{{ cloudflared_package_path }}"
+        state: present
+        disable_gpg_check: true
+      when: ansible_os_family == "Suse"
+
+    - name: Check if cloudflared service is already installed
+      ansible.builtin.stat:
+        path: /etc/systemd/system/cloudflared.service
+      register: cloudflared_service_file
+
+    - name: Install cloudflared as a systemd service
+      ansible.builtin.command:
+        cmd: "cloudflared service install {{ tunnel_token }}"
+      when:
+        - tunnel_token is defined
+        - tunnel_token | trim | length > 0
+        - not cloudflared_service_file.stat.exists
+      no_log: true
+
+    - name: Ensure cloudflared service is started and enabled
+      ansible.builtin.systemd:
+        name: cloudflared
+        state: started
+        enabled: true
+      when:
+        - tunnel_token is defined
+        - tunnel_token | trim | length > 0

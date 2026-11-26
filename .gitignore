@@ -1,0 +1,21 @@
+# Ansible core & runtime files
+*.retry
+.ansible/
+.cache/
+
+# Secrets & Vault passwords (never commit plain-text secrets)
+*vault_pass*
+.vault_pass
+vault.txt
+*.pem
+*.key
+
+# Molecule & testing artifacts
+.molecule/
+.pytest_cache/
+.tox/
+.coverage
+htmlcov/
+
+.vagrant
+.env
