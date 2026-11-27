@@ -75,7 +75,6 @@
       ansible.builtin.package:
         name: "{{ cloudflared_package_path }}"
         state: present
-        disable_gpg_check: true
 
     - name: Check if cloudflared service is already installed
       ansible.builtin.stat:
