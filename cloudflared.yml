@@ -82,19 +82,39 @@
 
     - name: List Docker Compose stacks
       ansible.builtin.command:
-        cmd: docker compose ls -a
+        cmd: docker compose ls -a --format json
       register: docker_compose_stacks
       changed_when: false
       failed_when: false
 
+    - name: Parse Docker Compose stacks
+      ansible.builtin.set_fact:
+        docker_compose_stack_list: "{{ docker_compose_stacks.stdout | from_json }}"
+
+    - name: Initialize cloudflared Compose stack
+      ansible.builtin.set_fact:
+        cloudflared_compose_stack: null
+
+    - name: Find cloudflared Compose stack
+      ansible.builtin.set_fact:
+        cloudflared_compose_stack: "{{ item }}"
+      loop: "{{ docker_compose_stack_list }}"
+      when: item.Name | default('') == stack_name
+
+    - name: Display debug information
+      ansible.builtin.debug:
+        msg:
+          cloudflared_compose_stack: "{{ cloudflared_compose_stack }}"
+      when: debug_display
+
     - name: Check whether cloudflared Compose stack exists
       ansible.builtin.set_fact:
-        cloudflared_compose_exists: "{{ docker_compose_stacks.stdout is regex('(?im)^cloudflared\\s') }}"
+        cloudflared_compose_exists: "{{ cloudflared_compose_stack is not none }}"
 
     - name: Drop existing stack
       when: cloudflared_compose_exists
       ansible.builtin.command:
-        cmd: docker compose -f "{{ compose_file }}" down
+        cmd: docker compose -f "{{ cloudflared_compose_stack.ConfigFiles }}" down
       register: drop_stack_result
       changed_when: drop_stack_result.rc == 0
       failed_when: drop_stack_result.rc != 0
