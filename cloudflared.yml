@@ -154,7 +154,8 @@
               cloudflared:
                 container_name: {{ stack_name }}
                 image: cloudflare/cloudflared
-                restart: always
+                user: "{{ the_puid }}:{{ the_pgid }}"
+                restart: unless-stopped
                 network_mode: host
                 env_file: "./{{ compose_env_filename }}"
                 command: "tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}"
@@ -166,8 +167,6 @@
           content: |
             TZ="{{ system_timezone }}"
             TUNNEL_TOKEN="{{ the_tunnel_token }}"
-            PUID="{{ the_puid }}"
-            PGID="{{ the_pgid }}"
 
       - name: Start cloudflared Compose stack
         ansible.builtin.command:
