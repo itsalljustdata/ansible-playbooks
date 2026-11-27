@@ -6,7 +6,13 @@
   vars:
     debug_display: true
 
-    i_am_root: "{{ ansible_facts['env']['USER'] == 'root' }}"
+    this_user: "{{ ansible_facts['env']['USER'] }}"
+    i_am_root: "{{ this_user == 'root' }}"
+
+    stack_name: "cloudflared"
+    compose_folder: "/mnt/data/compose/{{ stack_name }}"
+    compose_file: "{{ compose_folder }}/compose.yaml"
+    compose_env_file: "{{ compose_folder }}/.env"
 
     cloudflared_arch_map:
       x86_64: amd64
@@ -56,45 +62,96 @@
           env: "{{ ansible_facts['env'] }}"
       when: debug_display
 
-    - name: Verify architecture and distribution are supported
+    - name: Get target user home directory
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ this_user }}"
+
+    - name: Set target user home directory fact
+      ansible.builtin.set_fact:
+        ansible_target_home: "{{ ansible_facts.getent_passwd[ansible_target_user][4] }}"
+
+
+    - name: Check whether Docker executable exists
+      ansible.builtin.command:
+        cmd: which docker
+      register: docker_which
+      changed_when: false
+      failed_when: false
+
+    - name: Check whether Docker is installed
+      ansible.builtin.set_fact:
+        docker_is_installed: "{{ docker_which.rc == 0 }}"
+      
+    - name: Require Docker
       ansible.builtin.assert:
         that:
-          - ansible_facts['architecture'] in cloudflared_arch_map
-          - cloudflared_package_format != ''
-        fail_msg: >-
-          Unsupported platform: architecture={{ ansible_facts['architecture'] }},
-          os_family={{ ansible_facts['os_family'] }}
+          - docker_is_installed
+        fail_msg: "Docker is required by the cloudflared Ansible playbook but 'docker' was not found on PATH."
 
-    - name: Download cloudflared package
-      ansible.builtin.get_url:
-        url: "{{ cloudflared_package_url }}"
-        dest: "{{ cloudflared_package_path }}"
-        mode: "0644"
-
-    - name: Install cloudflared package
-      ansible.builtin.package:
-        name: "{{ cloudflared_package_path }}"
-        state: present
-
-    - name: Check if cloudflared service is already installed
-      ansible.builtin.stat:
-        path: /etc/systemd/system/cloudflared.service
-      register: cloudflared_service_file
-
-    - name: Install cloudflared as a systemd service
+    - name: Get system timezone
       ansible.builtin.command:
-        cmd: "cloudflared service install {{ tunnel_token }}"
-      when:
-        - tunnel_token is defined
-        - tunnel_token | trim | length > 0
-        - not cloudflared_service_file.stat.exists
-      no_log: true
+        cmd: timedatectl show --property=Timezone --value
+      register: system_timezone_result
+      changed_when: false
+      failed_when: false
 
-    - name: Ensure cloudflared service is started and enabled
-      ansible.builtin.systemd:
-        name: cloudflared
-        state: started
-        enabled: true
-      when:
-        - tunnel_token is defined
-        - tunnel_token | trim | length > 0
+    - name: Set system timezone fact
+      ansible.builtin.set_fact:
+        system_timezone: "{{ system_timezone_result.stdout | default('') | trim }}"
+
+    - name: List Docker Compose stacks
+      ansible.builtin.command:
+        cmd: docker compose ls -a
+      register: docker_compose_stacks
+      changed_when: false
+      failed_when: false
+
+    - name: Check whether cloudflared Compose stack exists
+      ansible.builtin.set_fact:
+        cloudflared_compose_exists: "{{ docker_compose_stacks.stdout is regex('(?im)^cloudflared\\s') }}"
+
+    - name: Create cloudflared docker 
+      when: not cloudflared_compose_exists
+      block:
+      - name: Look for cloudflared compose folder
+        ansible.builtin.stat:
+          path: "{{ compose_folder }}"
+        register: cloudflared_compose_folder
+
+      - name: Create cloudflared Compose folder
+        ansible.builtin.file:
+          path: "{{ compose_folder }}"
+          state: directory
+          mode: "0755"
+        when: not cloudflared_compose_folder.stat.exists
+
+      - name: Create cloudflared Compose file
+        ansible.builtin.copy:
+          dest: "{{ compose_file }}"
+          content: |
+            version: '3.8'
+            services:
+              cloudflared:
+                container_name: cloudflared
+                image: cloudflared/cloudflared
+                restart: always
+                network_mode: host
+                environment:
+                  TZ: "{{ system_timezone }}"
+                  TUNNEL_TOKEN: "{{ tunnel_token }}"
+
+      - name: Start cloudflared Compose stack
+        ansible.builtin.command:
+          cmd: docker compose -f "{{ compose_file }}" up -d
+        when: 
+          - tunnel_token is defined
+          - tunnel_token | trim | length > 0
+        failed_when: false
+
+      - name: Do not start cloudflared Compose stack
+        ansible.builtin.debug:
+          msg: "Cloudflared Compose stack will not be started because tunnel_token is not defined or empty."
+        when: 
+          - tunnel_token is not defined or tunnel_token | trim | length == 0
+        failed_when: false
