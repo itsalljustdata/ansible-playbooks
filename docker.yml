@@ -20,14 +20,15 @@
       ansible.builtin.debug:
         msg:
           env_user: "{{ ansible_facts['env']['USER'] }}"
-          docker_user: "{{ docker_user }}"
           i_am_root: "{{ i_am_root }}"
+          docker_user: "{{ docker_user }}"
+          docker_user_is_root: "{{ docker_user_is_root }}"
       when: debug_display
 
     - name: Display env
       ansible.builtin.debug:
         msg:
-          env_user: "{{ ansible_facts['env'] }}"
+          env: "{{ ansible_facts['env'] }}"
       when: debug_display
 
     - name: Check whether Docker executable exists
