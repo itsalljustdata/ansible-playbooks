@@ -9,13 +9,15 @@
     debug_display: true
     
     env_user: "{{ lookup('env', 'USER') }}"
-    ansible_target_user: "{{ ansible_user | default(ansible_facts['user_id'] | default(env_user)) }}"
+    ansible_user_id: "{{ ansible_facts['user_id'] }}"
+    ansible_target_user: "{{ ansible_user | default(ansible_user_id | default(env_user)) }}"
     set_zsh_shell: "{{ ansible_target_user != 'root' }}"
 
+    debug_env_user: "{{ env_user | default('Not Set') }}"
     debug_ansible_user: "{{ ansible_user | default('Not Set') }}"
+    debug_ansible_user_id: "{{ ansible_user_id | default('Not Set') }}"
     debug_ansible_target_user: "{{ ansible_target_user | default('Not Set') }}"
     debug_ansible_env_user: "{{ ansible_facts['env']['USER'] | default('Not Set') }}"
-    debug_env_user: "{{ env_user | default('Not Set') }}"
 
 
   tasks:
@@ -23,10 +25,11 @@
     - name: Display Ansible user
       ansible.builtin.debug:
         msg:
+          env_user: "{{ debug_env_user }}"
           ansible_user: "{{ debug_ansible_user }}"
+          ansible_user_id: "{{ debug_ansible_user_id }}"
           ansible_target_user: "{{ debug_ansible_target_user }}"
           ansible_env_user: "{{ debug_ansible_env_user }}"
-          env_user: "{{ debug_env_user }}"
       when: debug_display
 
 
