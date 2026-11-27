@@ -14,42 +14,19 @@
     compose_file: "{{ compose_folder }}/compose.yaml"
     compose_env_file: "{{ compose_folder }}/{{ stack_name }}.env"
 
-    cloudflared_arch_map:
-      x86_64: amd64
-      aarch64: arm64
-      armv7l: armhf
-    cloudflared_arch: "{{ cloudflared_arch_map[ansible_facts['architecture']] }}"
-    cloudflared_package_format_map:
-      Debian: deb
-      RedHat: rpm
-      SUSE: rpm
-      Suse: rpm
-    cloudflared_package_format: "{{ cloudflared_package_format_map.get(ansible_facts['os_family'], '') }}"
-    cloudflared_package_url: "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-{{ cloudflared_arch }}.{{ cloudflared_package_format }}"
-    cloudflared_package_path: "/tmp/cloudflared.{{ cloudflared_package_format }}"
 
-# services:
-#   cloudflared:
-#     container_name: cloudflared
-#     image: zoeyvid/cloudflared
-#     restart: always
-#     network_mode: host
-#     environment:
-#       - "TZ=Europe/Berlin"
-#       - "TUNNEL_TOKEN=your-cloudflared-tunnel-token"
+    the_tunnel_token: "{{ tunnel_token | default('** UNDEFINED **') }}"
 
   tasks:
 
     - name: Display debug information
       ansible.builtin.debug:
         msg:
-          architecture: "{{ ansible_facts['architecture'] }}"
-          os_family: "{{ ansible_facts['os_family'] }}"
           i_am_root: "{{ i_am_root }}"
           compose_folder: "{{ compose_folder }}"
           compose_env_file: "{{ compose_env_file }}"
           compose_file: "{{ compose_file }}"
-          
+
       when: debug_display
     - name: Display token
       ansible.builtin.debug:
@@ -92,7 +69,7 @@
 
     - name: Set system timezone fact
       ansible.builtin.set_fact:
-        system_timezone: "{{ system_timezone_result.stdout | default('') | trim }}"
+        system_timezone: "{{ system_timezone_result.stdout | default('Etc/UTC') | trim }}"
 
     - name: List Docker Compose stacks
       ansible.builtin.command:
@@ -139,8 +116,8 @@
           dest: "{{ compose_env_file }}"
           mode: "0600"
           content: |
-            TZ="{{ default(system_timezone, 'UTC') }}"
-            TUNNEL_TOKEN="{{ default(tunnel_token, '**UNDEFINED**') }}"
+            TZ="{{ system_timezone }}"
+            TUNNEL_TOKEN="{{ the_tunnel_token }}"
 
       - name: Start cloudflared Compose stack
         ansible.builtin.command:
