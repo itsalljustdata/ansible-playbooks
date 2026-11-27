@@ -1,0 +1,42 @@
+- name: Configure NetBird tenant
+  hosts: localhost
+  gather_facts: false
+  # module_defaults:
+  #   group/community.ansible_netbird.netbird:
+  #     api_url: "{{ netbird_api_url }}"
+  #     api_token: "{{ netbird_api_token }}"
+  vars:
+    netbird_setup_key: "{{ netbird_setup_key | default(lookup('env', 'NETBIRD_SETUP_KEY')) }}"
+    # netbird_api_url: "{{ netbird_api_url | default('https://api.netbird.io') }}"
+    # netbird_api_token: "{{ netbird_api_token | default(lookup('env', 'NETBIRD_API_TOKEN')) }}"
+  tasks:
+
+    - name: Install Netbird
+      hosts: servers
+      vars:
+        netbird_setup_key: "{{ netbird_setup_key }}"
+      roles:
+        - { role: zorlin.netbird }
+    # - name: Create a group for servers
+    #   community.ansible_netbird.netbird_group:
+    #     name: servers
+    #     state: present
+    #   register: servers_group
+
+    # - name: Create a reusable setup key for servers
+    #   community.ansible_netbird.netbird_setup_key:
+    #     name: server-enrollment
+    #     key_type: reusable
+    #     expires_in: 604800
+    #     auto_groups:
+    #       - "{{ servers_group.group.id }}"
+    #     state: present
+    #   register: setup_key
+
+    # - name: Save the setup key (its secret is returned only on creation)
+    #   ansible.builtin.copy:
+    #     content: "{{ setup_key.setup_key.key }}"
+    #     dest: ./server-enrollment.key
+    #     mode: "0600"
+    #   no_log: true
+    #   when: setup_key.setup_key.key is defined

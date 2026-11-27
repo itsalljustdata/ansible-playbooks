@@ -1,0 +1,4 @@
+collections:
+  - name: https://github.com/netbirdio/ansible-netbird/releases/download/v1.5.0/community-ansible_netbird-1.5.0.tar.gz
+    type: url
+  - name: zorlin.netbird
