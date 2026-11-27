@@ -7,16 +7,13 @@
 
     debug_display: true
     
-    env_user: "{{ lookup('env', 'USER') }}"
-    ansible_user_id: "{{ ansible_facts['user_id'] }}"
+    env_user: "{{ ansible_facts['env']['USER'] }}"
     ansible_target_user: "{{ ansible_user | default(env_user) }}"
     set_zsh_shell: "{{ ansible_target_user != 'root' }}"
 
     debug_env_user: "{{ env_user | default('Not Set') }}"
     debug_ansible_user: "{{ ansible_user | default('Not Set') }}"
-    debug_ansible_user_id: "{{ ansible_user_id | default('Not Set') }}"
     debug_ansible_target_user: "{{ ansible_target_user | default('Not Set') }}"
-    debug_ansible_env_user: "{{ ansible_facts['env']['USER'] | default('Not Set') }}"
 
 
   tasks:
@@ -26,11 +23,14 @@
         msg:
           env_user: "{{ debug_env_user }}"
           ansible_user: "{{ debug_ansible_user }}"
-          ansible_user_id: "{{ debug_ansible_user_id }}"
           ansible_target_user: "{{ debug_ansible_target_user }}"
-          ansible_env_user: "{{ debug_ansible_env_user }}"
       when: debug_display
 
+    - name: Display env
+      ansible.builtin.debug:
+        msg:
+          env_user: "{{ ansible_facts['env'] }}"
+      when: debug_display
 
     - name: Gather installed packages
       ansible.builtin.package_facts:
@@ -81,6 +81,14 @@
           ansible.builtin.stat:
             path: "{{ ansible_target_home }}/.zshrc"
           register: ansible_target_zshrc
+
+        - name: update Oh My Zsh
+          ansible.builtin.shell:
+            cmd: "{{ ansible_target_home }}/.oh-my-zsh/tools/upgrade.sh"
+          become_user: "{{ ansible_target_user }}"
+          environment:
+            HOME: "{{ ansible_target_home }}"
+          when: ansible_target_ohmyzsh.stat.exists
 
         - name: Install Oh My Zsh for the target user
           ansible.builtin.shell:
