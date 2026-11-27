@@ -6,7 +6,7 @@
 
   vars:
     ssh_port: "{{ ssh_port | default(22) }}"
-    extra_ssh_ports: "{{ extra_ssh_ports | default([]) }}"
+    extra_ssh_port: "{{ [extra_ssh_port] | default([]) }}"
 
   pre_tasks:
     - name: Validate SSH port
@@ -47,7 +47,7 @@
         rule: allow
         port: "{{ item }}"
         proto: tcp
-      loop: "{{ ([ssh_port | int] + (extra_ssh_ports | map('int') | list)) | unique }}"
+      loop: "{{ ([ssh_port | int] + (extra_ssh_port | map('int') | list)) | unique }}"
 
     - name: Enable UFW
       community.general.ufw:
