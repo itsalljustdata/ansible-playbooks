@@ -118,7 +118,7 @@
                 image: cloudflare/cloudflared
                 restart: always
                 network_mode: host
-                env_file: "{{ compose_env_filename }}"
+                env_file: "{{ compose_env_file }}"
                 command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
 
       - name: Create cloudflared env file
