@@ -115,7 +115,7 @@
             services:
               cloudflared:
                 container_name: {{ stack_name }}
-                image: ghcr.io/cloudflare/cloudflared
+                image: cloudflare/cloudflared
                 restart: always
                 network_mode: host
                 env_file: "{{ compose_env_filename }}"
