@@ -1,4 +1,4 @@
 #!/bin/bash
 
-
-ansible-playbook zsh.yml --extra_vars "'ansible_user=`whoami`'"
+set -ex
+ansible-playbook zsh.yml --extra-vars "{\"ansible_user\":\"$(whoami)\"}"
