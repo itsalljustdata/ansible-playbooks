@@ -130,10 +130,10 @@
         ansible.builtin.copy:
           dest: "{{ compose_file }}"
           content: |
-            version: '3.8'
+            name: {{ stack_name }}
             services:
               cloudflared:
-                container_name: cloudflared
+                container_name: {{ stack_name }}
                 image: cloudflared/cloudflared
                 restart: always
                 network_mode: host
