@@ -8,9 +8,11 @@
     this_user: "{{ ansible_facts['env']['USER'] }}"
 
     stack_name: "cloudflared"
-    compose_folder: "/mnt/data/compose/{{ stack_name }}"
+    compose_root_folder: "/mnt/data/compose"
+    compose_folder: "{{ compose_root_folder }}/{{ stack_name }}"
     compose_file: "{{ compose_folder }}/compose.yaml"
-    compose_env_file: "{{ compose_folder }}/{{ stack_name }}.env"
+    compose_env_filename: "{{ stack_name }}.env"
+    compose_env_file: "{{ compose_folder }}/{{ compose_env_filename }}"
 
     the_tunnel_token: "{{ tunnel_token | default('** UNDEFINED **') }}"
 
@@ -96,7 +98,7 @@
           recurse: true
         when: not cloudflared_compose_folder.stat.exists
 
-      - name: Ensure correct ownership of cloudflared Compose folder
+      - name: Ensure correct ownership of Compose folder
         become: true
         ansible.builtin.file:
           path: "{{ compose_folder }}"
@@ -116,7 +118,7 @@
                 image: cloudflared/cloudflared
                 restart: always
                 network_mode: host
-                env_file: "{{ compose_env_file }}"
+                env_file: "{{ compose_env_filename }}"
 
       - name: Create cloudflared env file
         ansible.builtin.copy:
