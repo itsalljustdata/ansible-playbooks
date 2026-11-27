@@ -1,0 +1,64 @@
+---
+- name: Configure UFW SSH access
+  hosts: 127.0.0.1
+  connection: local
+  become: true
+
+  vars:
+    ssh_port: "{{ ssh_port | default(22) }}"
+    extra_ssh_ports: "{{ extra_ssh_ports | default([]) }}"
+
+  pre_tasks:
+    - name: Validate SSH port
+      ansible.builtin.assert:
+        that:
+          - ssh_port | int >= 1
+          - ssh_port | int <= 65535
+        fail_msg: "ssh_port must be between 1 and 65535"
+
+  tasks:
+    - name: Gather package facts
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Install UFW when missing
+      ansible.builtin.package:
+        name: ufw
+        state: present
+      when: "'ufw' not in ansible_facts.packages"
+
+    - name: Set default incoming policy
+      community.general.ufw:
+        policy: deny
+        direction: incoming
+
+    - name: Set default outgoing policy
+      community.general.ufw:
+        policy: allow
+        direction: outgoing
+
+    - name: Allow SSH service
+      community.general.ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: Allow configured SSH ports
+      community.general.ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop: "{{ ([ssh_port | int] + (extra_ssh_ports | map('int') | list)) | unique }}"
+
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+
+    - name: Get UFW status
+      ansible.builtin.command:
+        cmd: ufw status verbose
+      register: ufw_status
+      changed_when: false
+
+    - name: Display UFW status
+      ansible.builtin.debug:
+        var: ufw_status.stdout_lines
