@@ -2,18 +2,13 @@
 - name: Install and configure cloudflared tunnel
   hosts: 127.0.0.1
   connection: local
-  become: true
   vars:
     debug_display: true
-
-    this_user: "{{ ansible_facts['env']['USER'] }}"
-    i_am_root: "{{ this_user == 'root' }}"
 
     stack_name: "cloudflared"
     compose_folder: "/mnt/data/compose/{{ stack_name }}"
     compose_file: "{{ compose_folder }}/compose.yaml"
     compose_env_file: "{{ compose_folder }}/{{ stack_name }}.env"
-
 
     the_tunnel_token: "{{ tunnel_token | default('** UNDEFINED **') }}"
 
@@ -22,7 +17,6 @@
     - name: Display debug information
       ansible.builtin.debug:
         msg:
-          i_am_root: "{{ i_am_root }}"
           compose_folder: "{{ compose_folder }}"
           compose_env_file: "{{ compose_env_file }}"
           compose_file: "{{ compose_file }}"
