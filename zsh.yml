@@ -6,10 +6,24 @@
 
   vars:
 
+    debug_display: true
     ansible_target_user: "{{ ansible_user | default(ansible_facts['user_id'] | default(ansible_env.USER | default('root'))) }}"
     set_zsh_shell: "{{ ansible_target_user != 'root' }}"
 
+
   tasks:
+
+    - name: Display Ansible facts
+      ansible.builtin.debug:
+        msg:
+          ansible_facts: "{{ ansible_facts }}"
+      when: debug_display
+
+    - name: Display Ansible env
+      ansible.builtin.debug:
+        msg:
+          ansible_env: "{{ ansible_env }}"
+      when: debug_display
 
     - name: Gather installed packages
       ansible.builtin.package_facts:
@@ -47,6 +61,7 @@
           ansible.builtin.debug:
             msg:
               ansible_target_home: "{{ ansible_target_home }}"
+          when: debug_display
 
         - name: Check whether Oh My Zsh is installed
           ansible.builtin.stat:
@@ -102,3 +117,4 @@
         msg:
           ansible_target_user: "{{ ansible_target_user }}"
           set_zsh_shell: "{{ set_zsh_shell }}"
+      when: debug_display
