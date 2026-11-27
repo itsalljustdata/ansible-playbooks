@@ -30,22 +30,16 @@
           env_user: "{{ ansible_facts['env'] }}"
       when: debug_display
 
-    - name: Gather installed packages
-      ansible.builtin.package_facts:
-        manager: auto
+    - name: Check whether Docker executable exists
+      ansible.builtin.command:
+        cmd: which docker
+      register: docker_which
+      changed_when: false
+      failed_when: false
 
-    - name: Check whether docker is installed
+    - name: Check whether Docker is installed
       ansible.builtin.set_fact:
-        docker_is_installed: >-
-        {{
-          (
-            'docker-ce' in ansible_facts.packages
-            or 'docker-ce-cli' in ansible_facts.packages
-            or 'docker-engine' in ansible_facts.packages
-            or 'docker.io' in ansible_facts.packages
-            or 'docker' in ansible_facts.packages
-          )
-        }}
+        docker_is_installed: "{{ docker_which.rc == 0 }}"
 
     - name: Do Docker installation
       become: "{{ not i_am_root }}"
