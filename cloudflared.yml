@@ -159,6 +159,8 @@
                 network_mode: host
                 env_file: "./{{ compose_env_filename }}"
                 command: "tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}"
+                sysctls:
+                  - net.ipv4.ping_group_range={{ the_pgid }} {{ the_pgid }}
 
       - name: Create cloudflared env file
         ansible.builtin.copy:
