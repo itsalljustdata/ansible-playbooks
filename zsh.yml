@@ -19,21 +19,21 @@
       Suse: redhat
       SUSE: redhat
 
-    machine_arch: "{{ machine_arch_map.get(ansible_architecture, '') }}"
-    machine_os_family: "{{ machine_os_family_map.get(ansible_os_family, '') }}"
+    machine_arch: "{{ machine_arch_map.get(ansible_facts['architecture'], '') }}"
+    machine_os_family: "{{ machine_os_family_map.get(ansible_facts['os_family'], '') }}"
 
-    ansible_target_user: "{{ ansible_user | default(ansible_user_id | default('root')) }}"
+    ansible_target_user: "{{ ansible_user | default(ansible_facts['user_id'] | default('root')) }}"
     set_zsh_shell: "{{ ansible_target_user != 'root' }}"
 
   pre_tasks:
     - name: Verify architecture and distribution are supported
       ansible.builtin.assert:
         that:
-          - ansible_architecture in machine_arch_map
-          - ansible_os_family in machine_os_family_map
+          - ansible_facts['architecture'] in machine_arch_map
+          - ansible_facts['os_family'] in machine_os_family_map
         fail_msg: >-
-          Unsupported platform: architecture={{ ansible_architecture }},
-          os_family={{ ansible_os_family }}
+          Unsupported platform: architecture={{ ansible_facts['architecture'] }},
+          os_family={{ ansible_facts['os_family'] }}
 
   tasks:
     # Debian-family: Debian, Ubuntu, Kali
@@ -74,6 +74,17 @@
       register: ansible_target_ohmyzsh
       when: set_zsh_shell
 
+    - name: Check whether target user's zsh configuration exists
+      ansible.builtin.stat:
+        path: "{{ ansible_target_home }}/.zshrc"
+      register: ansible_target_zshrc
+      when: set_zsh_shell
+
+    - name: Check whether skel configuration exists
+      ansible.builtin.stat:
+        path: "/etc/skel/.zshrc"
+      register: ansible_skel_zshrc
+
     - name: Install Oh My Zsh for the target user
       ansible.builtin.shell:
         cmd: 'sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended'
@@ -86,13 +97,6 @@
       when:
         - set_zsh_shell
         - not ansible_target_ohmyzsh.stat.exists
-
-    - name: Check whether target user's zsh configuration exists
-      ansible.builtin.stat:
-        path: "{{ ansible_target_home }}/.zshrc"
-      register: ansible_target_zshrc
-      when: set_zsh_shell
-
     - name: Create target user's zsh configuration from Oh My Zsh template
       ansible.builtin.copy:
         src: "{{ ansible_target_home }}/.oh-my-zsh/templates/zshrc.zsh-template"
@@ -105,3 +109,15 @@
       when:
         - set_zsh_shell
         - not ansible_target_zshrc.stat.exists
+
+    - name: Create skel zsh configuration
+      ansible.builtin.copy:
+        src: "/etc/zsh/newuser.zshrc.recommended"
+        dest: "/etc/skel/.zshrc"
+        remote_src: true
+        owner: "root"
+        group: "root"
+        mode: "0644"
+        force: false
+      when:
+        - not ansible_skel_zshrc.stat.exists

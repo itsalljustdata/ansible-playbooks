@@ -6,7 +6,7 @@
 
   vars:
     docker_group: docker
-    docker_user: "{{ ansible_user | default(ansible_user_id | default('root')) }}"
+    docker_user: "{{ ansible_user | default(ansible_facts['user_id'] | default('root')) }}"
 
     docker_arch_map:
       x86_64: amd64
@@ -21,18 +21,18 @@
       Suse: redhat
       SUSE: redhat
 
-    docker_arch: "{{ docker_arch_map.get(ansible_architecture, '') }}"
-    docker_os_family: "{{ docker_os_family_map.get(ansible_os_family, '') }}"
+    docker_arch: "{{ docker_arch_map.get(ansible_facts['architecture'], '') }}"
+    docker_os_family: "{{ docker_os_family_map.get(ansible_facts['os_family'], '') }}"
 
   pre_tasks:
     - name: Verify architecture and distribution are supported
       ansible.builtin.assert:
         that:
-          - ansible_architecture in docker_arch_map
-          - ansible_os_family in docker_os_family_map
+          - ansible_facts['architecture'] in docker_arch_map
+          - ansible_facts['os_family'] in docker_os_family_map
         fail_msg: >-
-          Unsupported platform: architecture={{ ansible_architecture }},
-          os_family={{ ansible_os_family }}
+          Unsupported platform: architecture={{ ansible_facts['architecture'] }},
+          os_family={{ ansible_facts['os_family'] }}
 
   tasks:
     # Debian-family: Debian, Ubuntu, Kali
@@ -45,32 +45,32 @@
           - lsb-release
         state: present
         update_cache: true
-      when: ansible_os_family == "Debian"
+      when: ansible_facts['os_family'] == "Debian"
 
     - name: Create Debian APT keyring directory
       ansible.builtin.file:
         path: /etc/apt/keyrings
         state: directory
         mode: "0755"
-      when: ansible_os_family == "Debian"
+      when: ansible_facts['os_family'] == "Debian"
 
     - name: Download Docker Debian signing key
       ansible.builtin.get_url:
         url: "https://download.docker.com/linux/{{ docker_os_family }}/gpg"
         dest: /etc/apt/keyrings/docker.asc
         mode: "0644"
-      when: ansible_os_family == "Debian"
+      when: ansible_facts['os_family'] == "Debian"
 
     - name: Configure Docker APT repository
       ansible.builtin.apt_repository:
         repo: >-
           deb [arch={{ docker_arch }} signed-by=/etc/apt/keyrings/docker.asc]
           https://download.docker.com/linux/{{ docker_os_family }}
-          {{ 'bookworm' if ansible_distribution == 'Kali' else ansible_distribution_release }} stable
+          {{ 'bookworm' if ansible_facts['distribution'] == 'Kali' else ansible_facts['distribution_release'] }} stable
         filename: docker
         state: present
         update_cache: true
-      when: ansible_os_family == "Debian"
+      when: ansible_facts['os_family'] == "Debian"
 
     - name: Install Docker on Debian-family systems
       ansible.builtin.apt:
@@ -82,7 +82,7 @@
           - docker-compose-plugin
         state: present
         update_cache: true
-      when: ansible_os_family == "Debian"
+      when: ansible_facts['os_family'] == "Debian"
 
     # Red Hat-family: RHEL, Rocky, Alma, Fedora, Oracle Linux
     - name: Install Red Hat Docker prerequisites
@@ -91,7 +91,7 @@
           - ca-certificates
           - dnf-plugins-core
         state: present
-      when: ansible_os_family == "RedHat"
+      when: ansible_facts['os_family'] == "RedHat"
 
     - name: Remove conflicting Docker packages
       ansible.builtin.dnf:
@@ -107,7 +107,7 @@
           - podman
           - runc
         state: absent
-      when: ansible_os_family == "RedHat"
+      when: ansible_facts['os_family'] == "RedHat"
       failed_when: false
 
     - name: Configure Docker DNF repository
@@ -119,7 +119,7 @@
         gpgcheck: true
         gpgkey: https://download.docker.com/linux/centos/gpg
         file: docker-ce
-      when: ansible_os_family == "RedHat"
+      when: ansible_facts['os_family'] == "RedHat"
 
     - name: Install Docker on Red Hat-family systems
       ansible.builtin.dnf:
@@ -131,7 +131,7 @@
           - docker-compose-plugin
         state: present
         update_cache: true
-      when: ansible_os_family == "RedHat"
+      when: ansible_facts['os_family'] == "RedHat"
 
     - name: Start and enable Docker
       ansible.builtin.systemd:
