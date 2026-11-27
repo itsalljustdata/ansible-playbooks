@@ -6,7 +6,7 @@
   vars:
     debug_display: true
 
-    i_am_root: "{{ docker_user == 'root' }}"
+    i_am_root: "{{ ansible_facts['env']['USER'] == 'root' }}"
 
     cloudflared_arch_map:
       x86_64: amd64
