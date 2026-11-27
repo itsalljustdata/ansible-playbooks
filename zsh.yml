@@ -8,14 +8,14 @@
 
     debug_display: true
     
-    ansible_target_user: "{{ ansible_user | default(ansible_facts['user_id'] | default(ansible_env.USER | default('root'))) }}"
-    set_zsh_shell: "{{ ansible_target_user != 'root' }}"
     env_user: "{{ lookup('env', 'USER') }}"
+    ansible_target_user: "{{ ansible_user | default(ansible_facts['user_id'] | default(env_user)) }}"
+    set_zsh_shell: "{{ ansible_target_user != 'root' }}"
 
-    debug_ansible_user: "{{ default(ansible_user | 'Not Set') }}"
-    debug_ansible_target_user: "{{ default(ansible_target_user | 'Not Set') }}"
-    debug_ansible_env_user: "{{ default(ansible_env.USER | 'Not Set') }}"
-    debug_env_user: "{{ default(env_user | 'Not Set') }}"
+    debug_ansible_user: "{{ ansible_user | default('Not Set') }}"
+    debug_ansible_target_user: "{{ ansible_target_user | default('Not Set') }}"
+    debug_ansible_env_user: "{{ ansible_facts['env']['USER'] | default('Not Set') }}"
+    debug_env_user: "{{ env_user | default('Not Set') }}"
 
 
   tasks:
