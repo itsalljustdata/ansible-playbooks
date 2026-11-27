@@ -42,6 +42,16 @@
           env: "{{ ansible_facts['env'] }}"
       when: debug_display
 
+    - name: Get target user account details
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ this_user }}"
+
+    - name: Set cloudflared PUID and PGID facts
+      ansible.builtin.set_fact:
+        the_puid: "{{ ansible_facts.getent_passwd[this_user][1] }}"
+        the_pgid: "{{ ansible_facts.getent_passwd[this_user][2] }}"
+      
     - name: Check whether Docker executable exists
       ansible.builtin.command:
         cmd: which docker
@@ -136,6 +146,8 @@
           content: |
             TZ="{{ system_timezone }}"
             TUNNEL_TOKEN="{{ the_tunnel_token }}"
+            PUID="{{ the_puid }}"
+            PGID="{{ the_pgid }}"
 
       - name: Start cloudflared Compose stack
         ansible.builtin.command:
