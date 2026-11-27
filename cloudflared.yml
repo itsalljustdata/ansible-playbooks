@@ -62,16 +62,6 @@
           env: "{{ ansible_facts['env'] }}"
       when: debug_display
 
-    - name: Get target user home directory
-      ansible.builtin.getent:
-        database: passwd
-        key: "{{ this_user }}"
-
-    - name: Set target user home directory fact
-      ansible.builtin.set_fact:
-        ansible_target_home: "{{ ansible_facts.getent_passwd[ansible_target_user][4] }}"
-
-
     - name: Check whether Docker executable exists
       ansible.builtin.command:
         cmd: which docker
