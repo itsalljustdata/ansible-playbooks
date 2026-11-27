@@ -10,7 +10,7 @@
     
     env_user: "{{ lookup('env', 'USER') }}"
     ansible_user_id: "{{ ansible_facts['user_id'] }}"
-    ansible_target_user: "{{ ansible_user | default(ansible_user_id | default(env_user)) }}"
+    ansible_target_user: "{{ ansible_user | default(env_user) }}"
     set_zsh_shell: "{{ ansible_target_user != 'root' }}"
 
     debug_env_user: "{{ env_user | default('Not Set') }}"
