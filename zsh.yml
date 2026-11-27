@@ -61,7 +61,7 @@
           environment:
             HOME: "{{ ansible_target_home }}"
             RUNZSH: "no"
-            CHSH: "no"
+            CHSH: "yes"
           when: not ansible_target_ohmyzsh.stat.exists
 
         - name: Create target user's zsh configuration from Oh My Zsh template
@@ -91,3 +91,10 @@
         force: false
       when:
         - not ansible_skel_zshrc.stat.exists
+
+    - name: Display Zsh target settings
+      ansible.builtin.debug:
+        msg:
+          ansible_target_user: "{{ ansible_target_user }}"
+          set_zsh_shell: "{{ set_zsh_shell }}"
+          ansible_target_home: "{{ ansible_target_home }}"
