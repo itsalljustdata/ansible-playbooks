@@ -93,8 +93,9 @@
           path: "{{ compose_folder }}"
           state: directory
           mode: "0755"
-          owner: "{{ this_user }} : {{ this_user }}"
-          parent: true
+          owner: "{{ this_user }}"
+          group: "{{ this_user }}"
+          recurse: true
         when: not cloudflared_compose_folder.stat.exists
 
       - name: Create cloudflared Compose file
