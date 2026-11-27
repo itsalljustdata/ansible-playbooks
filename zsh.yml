@@ -13,17 +13,15 @@
 
   tasks:
 
-    - name: Display Ansible facts
+    - name: Display Ansible user
       ansible.builtin.debug:
         msg:
-          ansible_facts: "{{ ansible_facts }}"
+          ansible_user: "{{ ansible_user }}"
+          ansible_target_user: "{{ ansible_target_user }}"
+          ansible_env_user: "{{ ansible_env.USER }}"
+          env_user: "{{ lookup('env', 'USER') }}"
       when: debug_display
 
-    - name: Display Ansible env
-      ansible.builtin.debug:
-        msg:
-          ansible_env: "{{ ansible_env }}"
-      when: debug_display
 
     - name: Gather installed packages
       ansible.builtin.package_facts:
