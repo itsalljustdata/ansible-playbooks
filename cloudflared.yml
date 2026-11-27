@@ -139,7 +139,7 @@
 
       - name: Start cloudflared Compose stack
         ansible.builtin.command:
-          cmd: cd "{{ compose_folder }}" && docker compose up -d
+          cmd: bash -c "cd \"{{ compose_folder }}\" && docker compose up -d"
         when: 
           - tunnel_token is defined
           - tunnel_token | trim | length > 0
