@@ -43,6 +43,11 @@
           ansible.builtin.set_fact:
             ansible_target_home: "{{ ansible_facts.getent_passwd[ansible_target_user][4] }}"
 
+        - name: Display ansible_target_home
+          ansible.builtin.debug:
+            msg:
+              ansible_target_home: "{{ ansible_target_home }}"
+
         - name: Check whether Oh My Zsh is installed
           ansible.builtin.stat:
             path: "{{ ansible_target_home }}/.oh-my-zsh"
@@ -97,4 +102,3 @@
         msg:
           ansible_target_user: "{{ ansible_target_user }}"
           set_zsh_shell: "{{ set_zsh_shell }}"
-          ansible_target_home: "{{ ansible_target_home }}"
