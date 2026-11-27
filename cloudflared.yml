@@ -5,6 +5,8 @@
   vars:
     debug_display: true
 
+    this_user: "{{ ansible_facts['env']['USER'] }}"
+
     stack_name: "cloudflared"
     compose_folder: "/mnt/data/compose/{{ stack_name }}"
     compose_file: "{{ compose_folder }}/compose.yaml"
@@ -80,15 +82,19 @@
       when: not cloudflared_compose_exists
       block:
       - name: Look for cloudflared compose folder
+        become: true
         ansible.builtin.stat:
           path: "{{ compose_folder }}"
         register: cloudflared_compose_folder
 
       - name: Create cloudflared Compose folder
+        become: true
         ansible.builtin.file:
           path: "{{ compose_folder }}"
           state: directory
           mode: "0755"
+          owner: "{{ this_user }} : {{ this_user }}"
+          parent: true
         when: not cloudflared_compose_folder.stat.exists
 
       - name: Create cloudflared Compose file
