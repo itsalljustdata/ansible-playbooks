@@ -93,10 +93,16 @@
           path: "{{ compose_folder }}"
           state: directory
           mode: "0755"
+          recurse: true
+        when: not cloudflared_compose_folder.stat.exists
+
+      - name: Ensure correct ownership of cloudflared Compose folder
+        become: true
+        ansible.builtin.file:
+          path: "{{ compose_folder }}"
           owner: "{{ this_user }}"
           group: "{{ this_user }}"
           recurse: true
-        when: not cloudflared_compose_folder.stat.exists
 
       - name: Create cloudflared Compose file
         ansible.builtin.copy:
