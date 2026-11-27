@@ -119,6 +119,7 @@
                 restart: always
                 network_mode: host
                 env_file: "{{ compose_env_filename }}"
+                command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
 
       - name: Create cloudflared env file
         ansible.builtin.copy:
