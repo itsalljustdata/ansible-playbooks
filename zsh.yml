@@ -2,8 +2,7 @@
 - name: Install zsh
   hosts: 127.0.0.1
   connection: local
-  become: true
-
+  become: false
   vars:
 
     debug_display: true
@@ -43,6 +42,7 @@
 
     - name: Install zsh
       when: not zsh_is_installed
+      become: true
       ansible.builtin.package:
           name: zsh
           state: present
@@ -50,6 +50,7 @@
 
     - name: Configure Zsh for the target user
       when: set_zsh_shell
+      become: true
       block:
         - name: Set the default shell for the target user to zsh
           ansible.builtin.user:
@@ -84,12 +85,11 @@
         - name: Install Oh My Zsh for the target user
           ansible.builtin.shell:
             cmd: 'sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended'
-          become: true
           become_user: "{{ ansible_target_user }}"
           environment:
             HOME: "{{ ansible_target_home }}"
             RUNZSH: "no"
-            CHSH: "yes"
+            CHSH: "no"
           when: not ansible_target_ohmyzsh.stat.exists
 
         - name: Create target user's zsh configuration from Oh My Zsh template
@@ -109,6 +109,7 @@
       register: ansible_skel_zshrc
 
     - name: Create skel zsh configuration
+      become: true
       ansible.builtin.copy:
         src: "/etc/zsh/newuser.zshrc.recommended"
         dest: "/etc/skel/.zshrc"
