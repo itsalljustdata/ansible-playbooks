@@ -12,6 +12,7 @@
     docker_user: "{{ ansible_user | default(ansible_facts['env']['USER']) }}"
 
     i_am_root: "{{ docker_user == 'root' }}"
+    docker_user_is_root: "{{ docker_user == 'root' }}"
 
     docker_arch_map:
       x86_64: amd64
@@ -55,119 +56,53 @@
           env_user: "{{ ansible_facts['env'] }}"
       when: debug_display
 
+    - name: Gather installed packages
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Check whether docker is installed
+      ansible.builtin.set_fact:
+        docker_is_installed: "{{ 'docker' in ansible_facts.packages }}"
+
     - name: Do Docker installation
       become: "{{ not i_am_root }}"
+      when: not docker_is_installed
       block:
-      - name: Install Docker for Debian-family systems
-        when: ansible_facts['os_family'] == "Debian"
-        block:
-        - name: Install Debian Docker prerequisites
-          ansible.builtin.apt:
+        - name: Install Docker convenience script dependencies
+          ansible.builtin.package:
             name:
-              - apt-transport-https
+              - curl
               - ca-certificates
-              - gnupg
-              - lsb-release
             state: present
-            update_cache: true
 
-        - name: Create Debian APT keyring directory
-          ansible.builtin.file:
-            path: /etc/apt/keyrings
-            state: directory
-            mode: "0755"
-          when: ansible_facts['os_family'] == "Debian"
-
-        - name: Download Docker Debian signing key
+        - name: Download Docker convenience script
           ansible.builtin.get_url:
-            url: "https://download.docker.com/linux/{{ docker_os_family }}/gpg"
-            dest: /etc/apt/keyrings/docker.asc
-            mode: "0644"
-          when: ansible_facts['os_family'] == "Debian"
+            url: https://get.docker.com
+            dest: /tmp/get-docker.sh
+            mode: "0755"
 
-        - name: Configure Docker APT repository
-          ansible.builtin.apt_repository:
-            repo: >-
-              deb [arch={{ docker_arch }} signed-by=/etc/apt/keyrings/docker.asc]
-              https://download.docker.com/linux/{{ docker_os_family }}
-              {{ 'bookworm' if ansible_facts['distribution'] == 'Kali' else ansible_facts['distribution_release'] }} stable
-            filename: docker
-            state: present
-            update_cache: true
+        - name: Run Docker convenience script
+          ansible.builtin.command:
+            cmd: /tmp/get-docker.sh
+          changed_when: true
 
-        - name: Install Docker on Debian-family systems
-          ansible.builtin.apt:
-            name:
-              - docker-ce
-              - docker-ce-cli
-              - containerd.io
-              - docker-buildx-plugin
-              - docker-compose-plugin
-            state: present
-            update_cache: true
-
-      - name: Install Docker for Red Hat-family systems
-        when: ansible_facts['os_family'] == "RedHat"
-        block:
-        # Red Hat-family: RHEL, Rocky, Alma, Fedora, Oracle Linux
-        - name: Install Red Hat Docker prerequisites
-          ansible.builtin.dnf:
-            name:
-              - ca-certificates
-              - dnf-plugins-core
-            state: present
-
-        - name: Remove conflicting Docker packages
-          ansible.builtin.dnf:
-            name:
-              - docker
-              - docker-client
-              - docker-client-latest
-              - docker-common
-              - docker-latest
-              - docker-latest-logrotate
-              - docker-logrotate
-              - docker-engine
-              - podman
-              - runc
-            state: absent
-          failed_when: false
-
-        - name: Configure Docker DNF repository
-          ansible.builtin.yum_repository:
-            name: docker-ce-stable
-            description: Docker CE Stable
-            baseurl: "https://download.docker.com/linux/centos/$releasever/$basearch/stable"
+        - name: Start and enable Docker
+          ansible.builtin.systemd:
+            name: docker
             enabled: true
-            gpgcheck: true
-            gpgkey: https://download.docker.com/linux/centos/gpg
-            file: docker-ce
+            state: started
 
-        - name: Install Docker on Red Hat-family systems
-          ansible.builtin.dnf:
-            name:
-              - docker-ce
-              - docker-ce-cli
-              - containerd.io
-              - docker-buildx-plugin
-              - docker-compose-plugin
+    - name: Ensure Docker group exists and add user to it
+      become: not i_am_root
+      block:
+        - name: Create Docker group
+          ansible.builtin.group:
+            name: "{{ docker_group }}"
             state: present
-            update_cache: true
 
-      - name: Start and enable Docker
-        ansible.builtin.systemd:
-          name: docker
-          enabled: true
-          state: started
-
-      - name: Create Docker group
-        ansible.builtin.group:
-          name: "{{ docker_group }}"
-          state: present
-
-      - name: Add Docker user to Docker group
-        ansible.builtin.user:
-          name: "{{ docker_user }}"
-          groups: "{{ docker_group }}"
-          append: true
-        when: i_am_root == false
+        - name: Add Docker user to Docker group
+          when: not docker_user_is_root 
+          ansible.builtin.user:
+            name: "{{ docker_user }}"
+            groups: "{{ docker_group }}"
+            append: true
