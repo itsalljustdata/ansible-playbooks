@@ -14,32 +14,6 @@
     i_am_root: "{{ docker_user == 'root' }}"
     docker_user_is_root: "{{ docker_user == 'root' }}"
 
-    docker_arch_map:
-      x86_64: amd64
-      aarch64: arm64
-      armv7l: armhf
-
-    docker_os_family_map:
-      Debian: debian
-      Ubuntu: debian
-      Kali: debian
-      RedHat: redhat
-      Suse: redhat
-      SUSE: redhat
-
-    docker_arch: "{{ docker_arch_map.get(ansible_facts['architecture'], '') }}"
-    docker_os_family: "{{ docker_os_family_map.get(ansible_facts['os_family'], '') }}"
-
-  pre_tasks:
-    - name: Verify architecture and distribution are supported
-      ansible.builtin.assert:
-        that:
-          - ansible_facts['architecture'] in docker_arch_map
-          - ansible_facts['os_family'] in docker_os_family_map
-        fail_msg: >-
-          Unsupported platform: architecture={{ ansible_facts['architecture'] }},
-          os_family={{ ansible_facts['os_family'] }}
-
   tasks:
 
     - name: Display user
@@ -93,7 +67,7 @@
             state: started
 
     - name: Ensure Docker group exists and add user to it
-      become: not i_am_root
+      become: "{{ not i_am_root }}"
       block:
         - name: Create Docker group
           ansible.builtin.group:
@@ -101,7 +75,7 @@
             state: present
 
         - name: Add Docker user to Docker group
-          when: not docker_user_is_root 
+          when: "{{ not docker_user_is_root }}"
           ansible.builtin.user:
             name: "{{ docker_user }}"
             groups: "{{ docker_group }}"
