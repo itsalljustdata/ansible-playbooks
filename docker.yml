@@ -78,7 +78,7 @@
             state: present
 
         - name: Add Docker user to Docker group
-          when: "{{ not docker_user_is_root }}"
+          when: not docker_user_is_root
           ansible.builtin.user:
             name: "{{ docker_user }}"
             groups: "{{ docker_group }}"
