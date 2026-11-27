@@ -46,6 +46,10 @@
           architecture: "{{ ansible_facts['architecture'] }}"
           os_family: "{{ ansible_facts['os_family'] }}"
           i_am_root: "{{ i_am_root }}"
+          compose_folder: "{{ compose_folder }}"
+          compose_env_file: "{{ compose_env_file }}"
+          compose_file: "{{ compose_file }}"
+          
       when: debug_display
     - name: Display token
       ansible.builtin.debug:
