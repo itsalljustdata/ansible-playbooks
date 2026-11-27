@@ -56,7 +56,7 @@
       when: debug_display
 
     - name: Do Docker installation
-      become: true
+      become: "{{ not i_am_root }}"
       block:
       - name: Install Docker for Debian-family systems
         when: ansible_facts['os_family'] == "Debian"

@@ -8,6 +8,7 @@
     debug_display: true
     
     env_user: "{{ ansible_facts['env']['USER'] }}"
+    i_am_root: "{{ env_user == 'root' }}"
     ansible_target_user: "{{ ansible_user | default(env_user) }}"
     set_zsh_shell: "{{ ansible_target_user != 'root' }}"
 
@@ -42,7 +43,7 @@
 
     - name: Install zsh
       when: not zsh_is_installed
-      become: true
+      become: "{{ not i_am_root }}"
       ansible.builtin.package:
           name: zsh
           state: present
@@ -50,7 +51,7 @@
 
     - name: Configure Zsh for the target user
       when: set_zsh_shell
-      become: true
+      become: "{{ not i_am_root }}"
       block:
         - name: Set the default shell for the target user to zsh
           ansible.builtin.user:
@@ -117,7 +118,7 @@
       register: ansible_skel_zshrc
 
     - name: Create skel zsh configuration
-      become: true
+      become: "{{ not i_am_root }}"
       ansible.builtin.copy:
         src: "/etc/zsh/newuser.zshrc.recommended"
         dest: "/etc/skel/.zshrc"
