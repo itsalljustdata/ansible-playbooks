@@ -134,7 +134,7 @@
         when: 
           - tunnel_token is defined
           - tunnel_token | trim | length > 0
-        failed_when: false
+        # failed_when: false
 
       - name: Do not start cloudflared Compose stack
         ansible.builtin.debug:
