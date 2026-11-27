@@ -36,7 +36,16 @@
 
     - name: Check whether docker is installed
       ansible.builtin.set_fact:
-        docker_is_installed: "{{ 'docker' in ansible_facts.packages }}"
+        docker_is_installed: >-
+        {{
+          (
+            'docker-ce' in ansible_facts.packages
+            or 'docker-ce-cli' in ansible_facts.packages
+            or 'docker-engine' in ansible_facts.packages
+            or 'docker.io' in ansible_facts.packages
+            or 'docker' in ansible_facts.packages
+          )
+        }}
 
     - name: Do Docker installation
       become: "{{ not i_am_root }}"
