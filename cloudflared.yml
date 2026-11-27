@@ -10,8 +10,9 @@
     stack_name: "cloudflared"
     compose_root_folder: "/mnt/data/compose"
     compose_folder: "{{ compose_root_folder }}/{{ stack_name }}"
-    compose_file: "{{ compose_folder }}/compose.yaml"
-    compose_env_filename: "{{ stack_name }}.env"
+    compose_filename: "compose.yaml"
+    compose_file: "{{ compose_folder }}/{{ compose_filename }}"
+    compose_env_filename: ".env"
     compose_env_file: "{{ compose_folder }}/{{ compose_env_filename }}"
 
     the_tunnel_token: "{{ tunnel_token | default('** UNDEFINED **') }}"
@@ -80,8 +81,15 @@
       ansible.builtin.set_fact:
         cloudflared_compose_exists: "{{ docker_compose_stacks.stdout is regex('(?im)^cloudflared\\s') }}"
 
+    - name: Drop existing stack
+      when: cloudflared_compose_exists
+      ansible.builtin.command:
+        cmd: docker compose -f "{{ compose_file }}" down
+      register: drop_stack_result
+      changed_when: drop_stack_result.rc == 0
+      failed_when: drop_stack_result.rc != 0
+
     - name: Create cloudflared docker 
-      when: not cloudflared_compose_exists
       block:
       - name: Look for cloudflared compose folder
         become: true
@@ -118,8 +126,8 @@
                 image: cloudflare/cloudflared
                 restart: always
                 network_mode: host
-                env_file: "{{ compose_env_file }}"
-                command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+                env_file: "./{{ compose_env_filename }}"
+                command: "tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}"
 
       - name: Create cloudflared env file
         ansible.builtin.copy:
@@ -131,15 +139,10 @@
 
       - name: Start cloudflared Compose stack
         ansible.builtin.command:
-          cmd: docker compose -f "{{ compose_file }}" up -d
+          cmd: cd "{{ compose_folder }}" && docker compose up -d
         when: 
           - tunnel_token is defined
           - tunnel_token | trim | length > 0
-        # failed_when: false
-
-      - name: Do not start cloudflared Compose stack
-        ansible.builtin.debug:
-          msg: "Cloudflared Compose stack will not be started because tunnel_token is not defined or empty."
-        when: 
-          - tunnel_token is not defined or tunnel_token | trim | length == 0
-        failed_when: false
+        register: create_stack_result
+        changed_when: create_stack_result.rc == 0
+        failed_when: create_stack_result.rc != 0
