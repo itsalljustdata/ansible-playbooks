@@ -1,0 +1,59 @@
+---
+- name: Start block-volume automount services
+  hosts: 127.0.0.1
+  connection: local
+  become: true
+  vars:
+    debug_display: true
+
+    theMountpoints: "{{ mountpoints | default([]) }}"
+
+  pre-tasks:
+    - name: Validate mountpoints
+      ansible.builtin.assert:
+        that:
+          - (theMountpoints | default([])) is sequence
+          - (theMountpoints | default([])) is not string
+          - (theMountpoints | default([]) | length) == ((theMountpoints | default([])) | select('string') | list | length)
+          - (theMountpoints | default([]) | length) == ((theMountpoints | default([])) | reject('equalto', '') | list | length)
+        fail_msg: "mountpoints must be a list of non-empty mountpoint strings."
+
+  tasks:
+
+    - name: Derive automount unit names
+      ansible.builtin.command:
+        argv:
+          - systemd-escape
+          - --path
+          - --suffix=automount
+          - "{{ item }}"
+      loop: "{{ theMountpoints }}"
+      register: automount_units
+      changed_when: false
+
+    - name: Debug automount units
+      ansible.builtin.debug:
+        mp: "{{ theMountpoints }}"
+        units: "{{ automount_units }}"
+      when: debug_display
+
+    - name: Process Mountpoints
+      when: theMountpoints | length > 0
+      block:
+
+      - name: Enable and start automount units
+        ansible.builtin.systemd:
+          name: "{{ item.stdout }}"
+          enabled: true
+          state: started
+        loop: "{{ automount_units.results | default([]) }}"
+        loop_control:
+          label: "{{ item.stdout }}"
+
+      - name: Wait for mountpoints
+        ansible.builtin.wait_for:
+          path: "{{ item }}"
+          state: present
+          timeout: 120
+          sleep: 1
+        loop: "{{ theMountpoints }}"
