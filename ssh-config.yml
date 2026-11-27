@@ -1,0 +1,110 @@
+---
+- name: Configure SSH
+  hosts: 127.0.0.1
+  connection: local
+  become: true
+
+  vars:
+    ssh_port: "{{ ssh_port | default(22) }}"
+    ssh_user: "{{ ssh_user | default(ansible_facts['user_id'] | default('root')) }}"
+    ssh_authorized_keys: "{{ ssh_authorized_keys | default([]) }}"
+
+  pre_tasks:
+    - name: Validate SSH port
+      ansible.builtin.assert:
+        that:
+          - ssh_port | int >= 1
+          - ssh_port | int <= 65535
+        fail_msg: "ssh_port must be between 1 and 65535"
+
+  tasks:
+    - name: Ensure SSH drop-in directory exists
+      ansible.builtin.file:
+        path: /etc/ssh/sshd_config.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Ensure sshd main configuration includes drop-ins
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        line: "Include /etc/ssh/sshd_config.d/*.conf"
+        state: present
+
+    - name: Configure SSH listening port
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/99-ssh-ports.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # Managed by Ansible.
+          Port 22
+          Port {{ ssh_port | int }}
+      when: ssh_port | int != 22
+
+    - name: Configure SSH authentication
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/98-ssh-auth.conf
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          # Managed by Ansible.
+          PasswordAuthentication yes
+          KbdInteractiveAuthentication yes
+          UsePAM yes
+
+    - name: Check whether ssh.socket exists
+      ansible.builtin.command:
+        cmd: systemctl cat ssh.socket
+      register: ssh_socket_unit
+      changed_when: false
+      failed_when: false
+
+    - name: Disable ssh.socket when present
+      ansible.builtin.systemd:
+        name: ssh.socket
+        state: stopped
+        enabled: false
+      when: ssh_socket_unit.rc == 0
+
+    - name: Validate sshd configuration
+      ansible.builtin.command:
+        cmd: sshd -t
+      changed_when: false
+
+    - name: Reload systemd configuration
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Enable and restart SSH service
+      ansible.builtin.systemd:
+        name: ssh
+        enabled: true
+        state: restarted
+
+    - name: Ensure the target SSH user exists
+      ansible.builtin.user:
+        name: "{{ ssh_user }}"
+        state: present
+        shell: /bin/bash
+
+    - name: Install authorized keys for the SSH user
+      ansible.builtin.authorized_key:
+        user: "{{ ssh_user }}"
+        state: present
+        key: "{{ item }}"
+      loop: "{{ ssh_authorized_keys }}"
+      when: ssh_authorized_keys | length > 0
+
+    - name: Install authorized SSH keys
+      ansible.posix.authorized_key:
+        user: "{{ ssh_user }}"
+        key: "{{ item }}"
+        state: present
+      loop: "{{ ssh_authorized_keys }}"
+      when:
+        - ssh_user != 'root'
+        - ssh_authorized_keys | length > 0
